@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\DriveItemType;
+use App\Enums\TeamRole;
 use App\Models\DriveItem;
+use App\Models\Team;
 use App\Models\User;
 
 test('guests are redirected to the login page', function () {
@@ -95,6 +97,45 @@ test('my drive lists only the users own root items', function () {
         ->assertSee('Root Folder');
 
     expect($response->viewData('items')->pluck('name')->all())->toBe(['Root Folder']);
+});
+
+test('switching teams shows that teams drive items', function () {
+    $user = User::factory()->create();
+    $otherTeam = Team::factory()->create(['name' => 'Project Team']);
+    $otherTeam->members()->attach($user, ['role' => TeamRole::Owner->value]);
+
+    $personalFolder = DriveItem::factory()->for($user, 'owner')->create(['name' => 'Personal Folder']);
+    $teamFolder = DriveItem::factory()->for($user, 'owner')->create([
+        'team_id' => $otherTeam->id,
+        'name' => 'Project Folder',
+    ]);
+
+    $personalResponse = $this->actingAs($user)
+        ->get(route('drive.index'))
+        ->assertOk()
+        ->assertSee('Personal Folder')
+        ->assertDontSee('Project Folder');
+
+    expect($personalResponse->viewData('items')->pluck('id')->all())->toBe([$personalFolder->id]);
+
+    $user->switchTeam($otherTeam);
+
+    $teamResponse = $this->actingAs($user)
+        ->get(route('drive.index'))
+        ->assertOk()
+        ->assertSee('Project Folder')
+        ->assertDontSee('Personal Folder');
+
+    expect($teamResponse->viewData('items')->pluck('id')->all())->toBe([$teamFolder->id]);
+
+    $member = User::factory()->create();
+    $otherTeam->members()->attach($member, ['role' => TeamRole::Member->value]);
+    $member->switchTeam($otherTeam);
+
+    $this->actingAs($member)
+        ->get(route('drive.index'))
+        ->assertOk()
+        ->assertSee('Project Folder');
 });
 
 test('opening a folder shows its direct children and breadcrumbs', function () {

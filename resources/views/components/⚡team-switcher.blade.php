@@ -39,25 +39,40 @@ new class extends Component {
 
         $user->switchTeam($team);
 
-        if (! request()->header('Referer')) {
+        $referer = request()->header('Referer');
+
+        if (! $referer) {
             $this->redirectRoute('dashboard', ['current_team' => $team->slug], navigate: true);
 
             return;
         }
 
+        if ($this->isDriveReferer($referer)) {
+            $this->redirectRoute('drive.index', navigate: true);
+
+            return;
+        }
+
         if (! $currentTeamSlug) {
-            $this->redirect(request()->header('Referer'), navigate: true);
+            $this->redirect($referer, navigate: true);
 
             return;
         }
 
         $redirectTo = $this->replaceCurrentTeamInReferer(
-            request()->header('Referer'),
+            $referer,
             $currentTeamSlug,
             $team->slug,
         );
 
-        $this->redirect($redirectTo ?? request()->header('Referer'), navigate: true);
+        $this->redirect($redirectTo ?? $referer, navigate: true);
+    }
+
+    protected function isDriveReferer(string $referer): bool
+    {
+        $path = parse_url($referer, PHP_URL_PATH);
+
+        return is_string($path) && preg_match('#(?:^|/)drive(?:/|$)#', $path) === 1;
     }
 
     protected function replaceCurrentTeamInReferer(string $referer, string $currentTeamSlug, string $newTeamSlug): ?string
