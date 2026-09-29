@@ -11,12 +11,12 @@ trait GeneratesUniqueDriveItemNames
      *
      * "Holiday Photo.png" becomes "Holiday Photo (1).png", "Projects" becomes "Projects (1)".
      */
-    public static function generateUniqueName(int $userId, ?int $parentId, string $name, bool $keepExtension, ?int $excludeId = null): string
+    public static function generateUniqueName(int $teamId, ?int $parentId, string $name, bool $keepExtension, ?int $excludeId = null): string
     {
         [$base, $extension] = static::splitName($name, $keepExtension);
 
         $existingNames = static::query()
-            ->where('user_id', $userId)
+            ->where('team_id', $teamId)
             ->where('parent_id', $parentId)
             ->when($excludeId, fn ($query) => $query->whereKeyNot($excludeId))
             ->where(function ($query) use ($name, $base) {

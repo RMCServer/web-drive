@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
 /**
- * A file or folder in a user's Drive.
+ * A file or folder in a team's Drive.
  *
  * Trashing a folder soft-deletes its whole subtree. Only the item the user
  * trashed is flagged as "explicitly trashed"; its descendants are trashed
@@ -30,6 +30,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property string $uuid
  * @property int $user_id
+ * @property int|null $team_id
  * @property int|null $parent_id
  * @property DriveItemType $type
  * @property string $name
@@ -44,10 +45,11 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property-read User $owner
+ * @property-read Team|null $team
  * @property-read DriveItem|null $parent
  * @property-read Collection<int, DriveItem> $children
  */
-#[Fillable(['user_id', 'parent_id', 'type', 'name', 'mime_type', 'extension', 'size', 'disk', 'storage_path'])]
+#[Fillable(['user_id', 'team_id', 'parent_id', 'type', 'name', 'mime_type', 'extension', 'size', 'disk', 'storage_path'])]
 class DriveItem extends Model
 {
     /** @use HasFactory<DriveItemFactory> */
@@ -79,6 +81,16 @@ class DriveItem extends Model
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * Get the team containing this item.
+     *
+     * @return BelongsTo<Team, $this>
+     */
+    public function team(): BelongsTo
+    {
+        return $this->belongsTo(Team::class);
     }
 
     /**
@@ -133,11 +145,11 @@ class DriveItem extends Model
     }
 
     /**
-     * Determine whether new items of the given user may be placed inside this item.
+     * Determine whether new items from the given team may be placed inside this item.
      */
-    public function canContainItemsOf(User $user): bool
+    public function canContainItemsOf(Team $team): bool
     {
-        return $this->isFolder() && $this->user_id === $user->id && ! $this->trashed();
+        return $this->isFolder() && $this->team_id === $team->id && ! $this->trashed();
     }
 
     /**
@@ -152,14 +164,14 @@ class DriveItem extends Model
     }
 
     /**
-     * Scope the query to items owned by the given user.
+     * Scope the query to items belonging to the given team.
      *
      * @param  Builder<DriveItem>  $query
      */
     #[Scope]
-    protected function ownedBy(Builder $query, User $user): void
+    protected function forTeam(Builder $query, Team $team): void
     {
-        $query->where('user_id', $user->id);
+        $query->where('team_id', $team->id);
     }
 
     /**

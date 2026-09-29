@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Drive\StoreFolderRequest;
 use App\Http\Resources\DriveItemResource;
 use App\Models\DriveItem;
-use App\Models\User;
+use App\Models\Team;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -18,13 +18,17 @@ use Illuminate\Support\Collection;
 class FolderController extends Controller
 {
     /**
-     * Show the root of the user's Drive.
+     * Show the root of the current team's Drive.
      */
     public function index(Request $request): Response|JsonResponse
     {
-        $items = DriveItem::ownedBy($request->user())->root()->orderedForListing()->get();
+        $team = $request->user()->currentTeam;
 
-        return $this->listing($request, null, collect(), $items);
+        abort_unless($team, 403);
+
+        $items = DriveItem::forTeam($team)->root()->orderedForListing()->get();
+
+        return $this->listing($request, $team, null, collect(), $items);
     }
 
     /**
@@ -34,15 +38,29 @@ class FolderController extends Controller
     {
         abort_unless($folder->isFolder(), 404);
 
-        return $this->listing($request, $folder, $folder->ancestors(), $folder->children()->orderedForListing()->get());
+        $team = $request->user()->currentTeam;
+
+        abort_unless($team, 403);
+
+        return $this->listing(
+            $request,
+            $team,
+            $folder,
+            $folder->ancestors(),
+            $folder->children()->where('team_id', $team->id)->orderedForListing()->get(),
+        );
     }
 
     /**
-     * Create a folder in the root or in one of the user's folders.
+     * Create a folder in the root or in one of the team's folders.
      */
     public function store(StoreFolderRequest $request, CreateFolder $createFolder): RedirectResponse
     {
-        $folder = $createFolder->handle($request->user(), $request->validated('name'), $request->parentFolder());
+        $team = $request->user()->currentTeam;
+
+        abort_unless($team, 403);
+
+        $folder = $createFolder->handle($request->user(), $team, $request->validated('name'), $request->parentFolder());
 
         return back(fallback: route('drive.index'))
             ->with('status', __('Folder ":name" created.', ['name' => $folder->name]));
@@ -57,7 +75,7 @@ class FolderController extends Controller
      * @param  Collection<int, DriveItem>  $breadcrumbs
      * @param  EloquentCollection<int, DriveItem>  $items
      */
-    protected function listing(Request $request, ?DriveItem $folder, Collection $breadcrumbs, EloquentCollection $items): Response|JsonResponse
+    protected function listing(Request $request, Team $team, ?DriveItem $folder, Collection $breadcrumbs, EloquentCollection $items): Response|JsonResponse
     {
         if ($request->wantsJson()) {
             return DriveItemResource::collection($items)->response()->header('Vary', 'Accept');
@@ -68,18 +86,18 @@ class FolderController extends Controller
             'breadcrumbs' => $breadcrumbs,
             'items' => $items,
             'itemsPayload' => DriveItemResource::collection($items)->resolve($request),
-            'moveTargets' => $this->moveTargets($request->user()),
+            'moveTargets' => $this->moveTargets($team),
         ])->header('Vary', 'Accept');
     }
 
     /**
-     * Get the user's folders labelled with their full path, for the move dialog.
+     * Get the team's folders labelled with their full path, for the move dialog.
      *
      * @return array<string, string>
      */
-    protected function moveTargets(User $user): array
+    protected function moveTargets(Team $team): array
     {
-        $folders = DriveItem::ownedBy($user)->folders()->get(['id', 'uuid', 'parent_id', 'name'])->keyBy('id');
+        $folders = DriveItem::forTeam($team)->folders()->get(['id', 'uuid', 'parent_id', 'name'])->keyBy('id');
 
         $pathOf = function (DriveItem $folder) use ($folders): string {
             $segments = [$folder->name];

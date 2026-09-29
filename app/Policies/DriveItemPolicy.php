@@ -7,8 +7,8 @@ use App\Models\User;
 use Illuminate\Auth\Access\Response;
 
 /**
- * Drive items are private to their owner. Denials respond with 404 so
- * other users cannot learn whether an item UUID exists.
+ * Drive items are private to their team. Denials respond with 404 so
+ * members of another team cannot learn whether an item UUID exists.
  */
 class DriveItemPolicy
 {
@@ -62,7 +62,11 @@ class DriveItemPolicy
 
     protected function owns(User $user, DriveItem $driveItem): Response
     {
-        return $driveItem->user_id === $user->id
+        $team = $driveItem->team;
+
+        return $team !== null
+            && $user->current_team_id === $team->id
+            && $user->belongsToTeam($team)
             ? Response::allow()
             : Response::denyAsNotFound();
     }

@@ -38,7 +38,7 @@ class RestoreItem
 
             $item->forceFill([
                 'parent_id' => $parentId,
-                'name' => DriveItem::generateUniqueName($item->user_id, $parentId, $item->name, $item->isFile(), $item->id),
+                'name' => DriveItem::generateUniqueName($item->team_id, $parentId, $item->name, $item->isFile(), $item->id),
                 'deleted_at' => null,
                 'explicitly_trashed' => false,
             ])->save();

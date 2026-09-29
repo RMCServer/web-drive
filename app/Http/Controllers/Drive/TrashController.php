@@ -13,12 +13,16 @@ use Illuminate\Http\Request;
 class TrashController extends Controller
 {
     /**
-     * List the items the user moved to the trash.
+     * List the items the current team moved to the trash.
      */
     public function index(Request $request): View
     {
+        $team = $request->user()->currentTeam;
+
+        abort_unless($team, 403);
+
         return view('drive.trash', [
-            'items' => DriveItem::ownedBy($request->user())
+            'items' => DriveItem::forTeam($team)
                 ->trashRoots()
                 ->with(['parent' => fn ($query) => $query->withTrashed()])
                 ->orderByDesc('deleted_at')

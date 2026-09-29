@@ -19,7 +19,7 @@ class RenameItem
         }
 
         $nameIsTaken = DriveItem::query()
-            ->where('user_id', $item->user_id)
+            ->where('team_id', $item->team_id)
             ->where('parent_id', $item->parent_id)
             ->whereKeyNot($item->id)
             ->where('name', $name)

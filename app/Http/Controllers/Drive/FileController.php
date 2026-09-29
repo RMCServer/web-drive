@@ -26,7 +26,11 @@ class FileController extends Controller
      */
     public function store(StoreFileRequest $request, UploadFile $uploadFile): RedirectResponse|JsonResponse
     {
-        $file = $uploadFile->handle($request->user(), $request->file('file'), $request->parentFolder());
+        $team = $request->user()->currentTeam;
+
+        abort_unless($team, 403);
+
+        $file = $uploadFile->handle($request->user(), $team, $request->file('file'), $request->parentFolder());
 
         if ($request->wantsJson()) {
             return DriveItemResource::make($file)->response()->setStatusCode(201);

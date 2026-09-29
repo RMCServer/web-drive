@@ -22,6 +22,7 @@ class DriveItemFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
+            'team_id' => null,
             'parent_id' => null,
             'type' => DriveItemType::Folder,
             'name' => Str::title(fake()->unique()->word()),
@@ -56,8 +57,27 @@ class DriveItemFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'user_id' => $folder->user_id,
+            'team_id' => $folder->team_id,
             'parent_id' => $folder->id,
         ]);
+    }
+
+    /**
+     * Configure the factory.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (DriveItem $item): void {
+            if ($item->team_id !== null) {
+                return;
+            }
+
+            $teamId = $item->owner->current_team_id;
+
+            if ($teamId !== null) {
+                $item->forceFill(['team_id' => $teamId])->save();
+            }
+        });
     }
 
     /**

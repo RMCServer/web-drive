@@ -10,9 +10,9 @@ use Illuminate\Validation\Rules\Exists;
 trait ResolvesDriveFolder
 {
     /**
-     * Rules for a field holding the UUID of an active folder owned by the user.
+     * Rules for a field holding the UUID of an active folder in the current team.
      *
-     * An empty value means the root of the user's Drive.
+     * An empty value means the root of the current team's Drive.
      *
      * @return array<int, Exists|string>
      */
@@ -22,7 +22,7 @@ trait ResolvesDriveFolder
             'nullable',
             'uuid',
             Rule::exists('drive_items', 'uuid')
-                ->where('user_id', $this->user()?->id)
+                ->where('team_id', $this->user()?->current_team_id)
                 ->where('type', DriveItemType::Folder->value)
                 ->withoutTrashed(),
         ];
@@ -39,6 +39,10 @@ trait ResolvesDriveFolder
             return null;
         }
 
-        return DriveItem::ownedBy($this->user())->folders()->where('uuid', $uuid)->firstOrFail();
+        return DriveItem::query()
+            ->where('team_id', $this->user()?->current_team_id)
+            ->folders()
+            ->where('uuid', $uuid)
+            ->firstOrFail();
     }
 }

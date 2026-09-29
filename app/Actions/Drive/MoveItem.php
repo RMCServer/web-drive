@@ -13,7 +13,7 @@ class MoveItem
      */
     public function handle(DriveItem $item, ?DriveItem $destination = null): DriveItem
     {
-        if ($destination && ! $destination->canContainItemsOf($item->owner)) {
+        if ($destination && ! $destination->canContainItemsOf($item->team)) {
             throw ValidationException::withMessages(['destination' => __('The selected folder is invalid.')]);
         }
 
@@ -30,7 +30,7 @@ class MoveItem
         return DB::transaction(function () use ($item, $destination) {
             $item->update([
                 'parent_id' => $destination?->id,
-                'name' => DriveItem::generateUniqueName($item->user_id, $destination?->id, $item->name, $item->isFile(), $item->id),
+                'name' => DriveItem::generateUniqueName($item->team_id, $destination?->id, $item->name, $item->isFile(), $item->id),
             ]);
 
             return $item;

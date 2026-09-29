@@ -5,6 +5,7 @@ namespace App\Actions\Drive;
 use App\Enums\DriveItemType;
 use App\Jobs\GenerateDriveItemThumbnail;
 use App\Models\DriveItem;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -23,9 +24,9 @@ class UploadFile
      *
      * The file is streamed to a UUID-based path; the visible name only lives in the database.
      */
-    public function handle(User $user, UploadedFile $file, ?DriveItem $parent = null): DriveItem
+    public function handle(User $user, Team $team, UploadedFile $file, ?DriveItem $parent = null): DriveItem
     {
-        if ($parent && ! $parent->canContainItemsOf($user)) {
+        if ($parent && ! $parent->canContainItemsOf($team)) {
             throw ValidationException::withMessages(['parent' => __('The selected folder is invalid.')]);
         }
 
@@ -42,12 +43,13 @@ class UploadFile
         $disk->putFileAs($directory, $file, 'original');
 
         try {
-            $item = DB::transaction(function () use ($user, $file, $parent, $uuid, $diskName, $storagePath) {
+            $item = DB::transaction(function () use ($user, $team, $file, $parent, $uuid, $diskName, $storagePath) {
                 $item = new DriveItem([
                     'user_id' => $user->id,
+                    'team_id' => $team->id,
                     'parent_id' => $parent?->id,
                     'type' => DriveItemType::File,
-                    'name' => DriveItem::generateUniqueName($user->id, $parent?->id, $this->visibleName($file), keepExtension: true),
+                    'name' => DriveItem::generateUniqueName($team->id, $parent?->id, $this->visibleName($file), keepExtension: true),
                     'mime_type' => $file->getMimeType() ?: 'application/octet-stream',
                     'extension' => Str::lower($file->getClientOriginalExtension()) ?: null,
                     'size' => $file->getSize(),
